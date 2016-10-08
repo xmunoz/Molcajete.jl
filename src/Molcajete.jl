@@ -41,11 +41,12 @@ module Molcajete
     function find_common_meetups(name::String)
         meetup = get_meetup(name)
         members = get_meetup_members(meetup)
-
-        for mem=members
-            get_meetups_of_member(mem)
+        @sync for mem=members
+            @async begin
+                get_meetups_of_member(mem)
+            end
         end
-
+        return
     end
 
     function get_meetups_of_member(member::MeetupUser)
@@ -58,8 +59,12 @@ module Molcajete
             query[key] = value
         end
 
-        result = length(perform_request("$base_url$endpoint", query)["results"])
-        println("$name is in $result meetups")
+        result = perform_request("$base_url$endpoint", query)["results"]
+        println(member.name)
+        member.meetups = Meetup[]
+        for res in result
+           push!(member.meetups, Meetup(res["id"], res["name"], res["city"], res["country"]))
+        end
     end
 
     function get_meetup(name::String)
