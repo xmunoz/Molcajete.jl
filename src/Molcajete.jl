@@ -10,7 +10,6 @@ module Molcajete
         error("MEETUP_API_TOKEN environment variable is required.")
     end
 
-    # a silly hack required by ImmutableDict
     global default_query_params = Dict("key" => ENV["MEETUP_API_TOKEN"], "signed" => true)
 
     type Event
@@ -18,7 +17,7 @@ module Molcajete
         name
         datetime::DateTime
     end
-    
+
     type Meetup
         id::Int
         name
@@ -39,22 +38,34 @@ module Molcajete
         #plot_histogram(events)
     end
 
-    function find_common_meetups(name)
+    function find_common_meetups(name::String)
         meetup = get_meetup(name)
         members = get_meetup_members(meetup)
+
         for mem=members
-            println(mem.name)
+            get_meetups_of_member(mem)
         end
+
     end
 
-    function get_meetup(name)
+    function get_meetups_of_member(member::MeetupUser)
+        name = member.name
+        endpoint = "2/groups"
+
+        query = Dict()
+        query["member_id"] = member.id
+        for (key, value) in default_query_params
+            query[key] = value
+        end
+
+        result = length(perform_request("$base_url$endpoint", query)["results"])
+        println("$name is in $result meetups")
+    end
+
+    function get_meetup(name::String)
         println("Fetching info for $name meetup.")
-        response = get("$base_url$name", query = default_query_params)
-        if response.status != 200
-            error(response.status)
-        end 
-        jr = json(response)
-        Meetup(jr["id"], jr["urlname"], jr["city"], jr["country"])
+        r = perform_request("$base_url$name", default_query_params)
+        Meetup(r["id"], r["urlname"], r["city"], r["country"])
     end
 
     function get_meetup_members(meetup::Meetup)
@@ -67,16 +78,11 @@ module Molcajete
             query[key] = value
         end
 
-        response = get("$base_url$endpoint", query = query)
+        response = perform_request("$base_url$endpoint", query)
 
-        if response.status != 200
-            error(response.status)
-        end
-
-        jr = json(response)
         users = MeetupUser[]
 
-        for r=jr["results"]
+        for r=response["results"]
             push!(users, MeetupUser(r["id"], r["name"], r["link"]))
         end
 
@@ -86,7 +92,14 @@ module Molcajete
     function get_events(meetup::Meetup, month::Int, year::Int)
     end
 
-    function get_groups(user::MeetupUser)
+    function perform_request(url::String, params::Dict)
+        response = get(url, query = params)
+
+        if response.status != 200
+            error(response.status)
+        end
+
+        json(response)
     end
 end
 
