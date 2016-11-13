@@ -38,7 +38,7 @@ module Molcajete
 
     function show_calendar(meetup_name::String, month::Int, year::Int)
         ranked_meetups = find_common_meetups(meetup_name, 10)
-        print(ranked_meetups)
+        println(ranked_meetups)
         #events = get_events(ranked_meetups, month, year)
         #plot_histogram(events)
     end
@@ -46,10 +46,8 @@ module Molcajete
     function find_common_meetups(name::String, n::Int)
         meetup = get_meetup(name)
         members = get_meetup_members(meetup)
-        @sync for mem=members
-            @async begin
-                get_meetups_of_member(mem)
-            end
+        for mem=members
+            get_meetups_of_member(mem)
         end
         return find_top_meetups(members, meetup.city, meetup.country, n)
     end
@@ -130,7 +128,8 @@ module Molcajete
         response = get(url, query = params)
 
         if response.status != 200
-            error(response.status)
+            println(response.status)
+            error(json(response)["errors"][1]["message"])
         end
 
         json(response)
