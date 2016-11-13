@@ -3,6 +3,10 @@ __precompile__()
 module Molcajete
 
     import Requests: get, post, put, delete, options, json
+    import DataStructures: counter
+    #import Dates: datetime2unix
+    #using Plots
+
 
     global base_url = "https://api.meetup.com/"
 
@@ -28,17 +32,18 @@ module Molcajete
     type MeetupUser 
         id::Int
         name
-        link 
-        #meetups::Meetup[]
+        link
+        meetups::Array{Meetup, 1}
     end
 
     function show_calendar(meetup_name::String, month::Int, year::Int)
-        meetups = find_common_meetups(meetup_name)
-        #events = get_events(meetups, month, year) 
+        ranked_meetups = find_common_meetups(meetup_name, 10)
+        print(ranked_meetups)
+        #events = get_events(ranked_meetups, month, year)
         #plot_histogram(events)
     end
 
-    function find_common_meetups(name::String)
+    function find_common_meetups(name::String, n::Int)
         meetup = get_meetup(name)
         members = get_meetup_members(meetup)
         @sync for mem=members
@@ -46,7 +51,23 @@ module Molcajete
                 get_meetups_of_member(mem)
             end
         end
-        return
+        return find_top_meetups(members, meetup.city, meetup.country, n)
+    end
+
+    function find_top_meetups(members::Array{MeetupUser}, city, country, top::Int)
+        c = counter(String)
+        for mem=members
+            for meet=mem.meetups
+                if meet.city == city && meet.country == country
+                    push!(c, meet.name)
+                end
+            end
+        end
+
+        sorted = select!(collect(c), 1:length(c), by=kv->kv[2], rev=true)
+
+        # number 1 will basically always be the input meetup, exclude it
+        return sorted[2:top+1]
     end
 
     function get_meetups_of_member(member::MeetupUser)
@@ -61,7 +82,6 @@ module Molcajete
 
         result = perform_request("$base_url$endpoint", query)["results"]
         println(member.name)
-        member.meetups = Meetup[]
         for res in result
            push!(member.meetups, Meetup(res["id"], res["name"], res["city"], res["country"]))
         end
@@ -88,14 +108,23 @@ module Molcajete
         users = MeetupUser[]
 
         for r=response["results"]
-            push!(users, MeetupUser(r["id"], r["name"], r["link"]))
+            push!(users, MeetupUser(r["id"], r["name"], r["link"], Meetup[]))
         end
 
         return users
     end
-
-    function get_events(meetup::Meetup, month::Int, year::Int)
+    #=
+    function get_events(meetups::Array{Array, 1}, month::Int, year::Int)
+        endpoint = "2/events"
+        query = Dict()
+        start = Int(Dates.datetime2unix(Dates.DateTime(year, month, 01))) * 100
+        end = Int(Dates.datetime2unix(Dates.Datetime(year, month, 30))) * 100
+        query["time"] = "$start,$end"
+        for (key, value) in default_query_params
+            query[key] = value
+        end
     end
+    =#
 
     function perform_request(url::String, params::Dict)
         response = get(url, query = params)
@@ -107,6 +136,3 @@ module Molcajete
         json(response)
     end
 end
-
-Molcajete.show_calendar("Julia-Users-Group", 11, 2016)
-
