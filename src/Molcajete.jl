@@ -3,8 +3,7 @@ __precompile__()
 module Molcajete
 
     import Requests: get, post, put, delete, options, json
-    import DataStructures: counter
-    #import Dates: datetime2unix
+    import DataStructures: counter, OrderedDict
     #using Plots
 
 
@@ -36,10 +35,9 @@ module Molcajete
         meetups::Array{Meetup, 1}
     end
 
-    function show_calendar(meetup_name::String, month::Int, year::Int)
-        ranked_meetups = find_common_meetups(meetup_name, 10)
-        println(ranked_meetups)
-        #events = get_events(ranked_meetups, month, year)
+    function show_calendar(meetup_name::String, start_date::Date, end_date::Date; num_meetups = 10)
+        ranked_meetups = find_common_meetups(meetup_name, num_meetups)
+        events = get_events(ranked_meetups, start_date, end_date)
         #plot_histogram(events)
     end
 
@@ -53,11 +51,11 @@ module Molcajete
     end
 
     function find_top_meetups(members::Array{MeetupUser}, city, country, top::Int)
-        c = counter(String)
+        c = counter(Int)
         for mem=members
             for meet=mem.meetups
                 if meet.city == city && meet.country == country
-                    push!(c, meet.name)
+                    push!(c, meet.id)
                 end
             end
         end
@@ -111,18 +109,33 @@ module Molcajete
 
         return users
     end
-    #=
-    function get_events(meetups::Array{Array, 1}, month::Int, year::Int)
+
+    function get_events(meetups, start_date::Date, end_date::Date)
+        println("Fetching events in date range")
         endpoint = "2/events"
+
         query = Dict()
-        start = Int(Dates.datetime2unix(Dates.DateTime(year, month, 01))) * 100
-        end = Int(Dates.datetime2unix(Dates.Datetime(year, month, 30))) * 100
-        query["time"] = "$start,$end"
+        starttime = Int(Dates.datetime2unix(Dates.DateTime(start_date))) * 1000
+        endtime = Int(Dates.datetime2unix(Dates.DateTime(end_date))) * 1000
+        query["time"] = "$starttime,$endtime"
         for (key, value) in default_query_params
             query[key] = value
         end
+
+        dday = OrderedDict( k => 0 for k in start_date:end_date)
+        for (meetup,count)=meetups
+            query["group_id"] = meetup
+            res = perform_request("$base_url$endpoint", query)["results"]
+            for r=res
+               dt = Dates.unix2datetime(r["time"]/1000)
+               dday[Date(Dates.yearmonthday(dt)...)] += count
+            end
+        end
+        for (day,weight)=dday
+            dow = Dates.dayname(day)
+            println("$day\t$weight\t$dow")
+        end
     end
-    =#
 
     function perform_request(url::String, params::Dict)
         response = get(url, query = params)
