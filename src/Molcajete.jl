@@ -1,11 +1,8 @@
-__precompile__()
-
 module Molcajete
 
-    import Requests: get, post, put, delete, options, json
+    import Requests: get, json
     import DataStructures: counter, OrderedDict
-    #using Plots
-
+    using Plots
 
     global base_url = "https://api.meetup.com/"
 
@@ -38,7 +35,13 @@ module Molcajete
     function show_calendar(meetup_name::String, start_date::Date, end_date::Date; num_meetups = 10)
         ranked_meetups = find_common_meetups(meetup_name, num_meetups)
         events = get_events(ranked_meetups, start_date, end_date)
-        #plot_histogram(events)
+        plot_histogram(events)
+    end
+
+    function plot_histogram(events::OrderedDict)
+        println("Plotting events.")
+        Plots.plotly()
+        display(Plots.bar(collect(keys(events)), collect(values(events))))
     end
 
     function find_common_meetups(name::String, n::Int)
@@ -47,6 +50,7 @@ module Molcajete
         for mem=members
             get_meetups_of_member(mem)
         end
+        println()
         return find_top_meetups(members, meetup.city, meetup.country, n)
     end
 
@@ -77,7 +81,7 @@ module Molcajete
         end
 
         result = perform_request("$base_url$endpoint", query)["results"]
-        println(member.name)
+        print(".")
         for res in result
            push!(member.meetups, Meetup(res["id"], res["name"], res["city"], res["country"]))
         end
@@ -111,7 +115,7 @@ module Molcajete
     end
 
     function get_events(meetups, start_date::Date, end_date::Date)
-        println("Fetching events in date range")
+        println("Fetching events in date range.")
         endpoint = "2/events"
 
         query = Dict()
@@ -122,7 +126,7 @@ module Molcajete
             query[key] = value
         end
 
-        dday = OrderedDict( k => 0 for k in start_date:end_date)
+        dday = OrderedDict{Date, Int64}(k => 0 for k in start_date:end_date)
         for (meetup,count)=meetups
             query["group_id"] = meetup
             res = perform_request("$base_url$endpoint", query)["results"]
@@ -131,10 +135,7 @@ module Molcajete
                dday[Date(Dates.yearmonthday(dt)...)] += count
             end
         end
-        for (day,weight)=dday
-            dow = Dates.dayname(day)
-            println("$day\t$weight\t$dow")
-        end
+        return dday
     end
 
     function perform_request(url::String, params::Dict)
