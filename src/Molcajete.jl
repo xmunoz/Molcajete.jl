@@ -111,7 +111,7 @@ module Molcajete
             push!(users, MeetupUser(r["id"], r["name"], r["link"], Meetup[]))
         end
 
-        return users
+        return users[1:3]
     end
 
     function get_events(meetups, start_date::Date, end_date::Date)

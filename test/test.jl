@@ -1,8 +1,3 @@
-__precompile__()
+using Molcajete
 
-using Plots
-Plots.plotlyjs()
-
-module TestCompilierWarnings
-    Plots.bar(randn(99))
-end
+Molcajete.show_calendar("Julia-Users-Group", Date(2016, 12, 1), Date(2016, 12, 31), num_meetups = 20)
