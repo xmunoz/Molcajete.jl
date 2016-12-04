@@ -2,7 +2,7 @@ module Molcajete
 
     import Requests: get, json
     import DataStructures: counter, OrderedDict
-    using Plots
+    using PlotlyJS
 
     global base_url = "https://api.meetup.com/"
 
@@ -23,6 +23,7 @@ module Molcajete
         name
         city
         country
+        events::OrderedDict{}
     end
 
     type MeetupUser 
@@ -34,14 +35,26 @@ module Molcajete
 
     function show_calendar(meetup_name::String, start_date::Date, end_date::Date; num_meetups = 10)
         ranked_meetups = find_common_meetups(meetup_name, num_meetups)
-        events = get_events(ranked_meetups, start_date, end_date)
-        plot_histogram(events)
+        meetups = get_events(ranked_meetups, start_date, end_date)
+        plot_histogram(meetups)
     end
 
-    function plot_histogram(events::OrderedDict)
+    function plot_histogram(meetups)
         println("Plotting events.")
-        Plots.plotly()
-        display(Plots.bar(collect(keys(events)), collect(values(events))))
+        # plotly raises an exception if data is simply initialized with []
+        data = PlotlyJS.GenericTrace[]
+        for (meetup, count) in meetups
+            y = collect(values(meetup.events))
+            x = collect(keys(meetup.events))
+            name = meetup.name
+            if y != zeros(length(y))
+                tr = bar(;x=x, y=y, name=name)
+                push!(data, tr)
+            end
+        end
+        layout = Layout(;barmode="stack")
+        display(plot(data, layout))
+        readline()
     end
 
     function find_common_meetups(name::String, n::Int)
@@ -56,18 +69,30 @@ module Molcajete
 
     function find_top_meetups(members::Array{MeetupUser}, city, country, top::Int)
         c = counter(Int)
+        meetupdict = Dict()
         for mem=members
             for meet=mem.meetups
                 if meet.city == city && meet.country == country
                     push!(c, meet.id)
                 end
+                # this sucks, i hate julia
+                if !haskey(meetupdict, meet.id)
+                    meetupdict[meet.id] = meet
+                end
             end
         end
 
+        # no most common method for counters, this sucks
+        # also, overloading == and isequal still doesnt enable counter to validly compare meetups
         sorted = select!(collect(c), 1:length(c), by=kv->kv[2], rev=true)
 
+        results = []
+        for (i,count) in sorted
+            push!(results, (meetupdict[i], count))
+        end
+
         # number 1 will basically always be the input meetup, exclude it
-        return sorted[2:top+1]
+        return results[2:top+1]
     end
 
     function get_meetups_of_member(member::MeetupUser)
@@ -83,14 +108,14 @@ module Molcajete
         result = perform_request("$base_url$endpoint", query)["results"]
         print(".")
         for res in result
-           push!(member.meetups, Meetup(res["id"], res["name"], res["city"], res["country"]))
+           push!(member.meetups, Meetup(res["id"], res["name"], res["city"], res["country"], OrderedDict()))
         end
     end
 
     function get_meetup(name::String)
         println("Fetching info for $name meetup.")
         r = perform_request("$base_url$name", default_query_params)
-        Meetup(r["id"], r["urlname"], r["city"], r["country"])
+        Meetup(r["id"], r["urlname"], r["city"], r["country"], OrderedDict())
     end
 
     function get_meetup_members(meetup::Meetup)
@@ -111,7 +136,7 @@ module Molcajete
             push!(users, MeetupUser(r["id"], r["name"], r["link"], Meetup[]))
         end
 
-        return users[1:3]
+        return users
     end
 
     function get_events(meetups, start_date::Date, end_date::Date)
@@ -126,16 +151,16 @@ module Molcajete
             query[key] = value
         end
 
-        dday = OrderedDict{Date, Int64}(k => 0 for k in start_date:end_date)
         for (meetup,count)=meetups
-            query["group_id"] = meetup
+            meetup.events = OrderedDict{Date, Int64}(k => 0 for k in start_date:end_date)
+            query["group_id"] = meetup.id
             res = perform_request("$base_url$endpoint", query)["results"]
             for r=res
                dt = Dates.unix2datetime(r["time"]/1000)
-               dday[Date(Dates.yearmonthday(dt)...)] += count
+               meetup.events[Date(Dates.yearmonthday(dt)...)] += count
             end
         end
-        return dday
+        return meetups
     end
 
     function perform_request(url::String, params::Dict)
