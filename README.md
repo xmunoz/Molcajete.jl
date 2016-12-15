@@ -1,6 +1,6 @@
 # Molcajete
 
-A date finder for the Julia meetup.
+A date finder for the Julia meetup. First, you'll need to set the environment variable `MEETUP_API_TOKEN`. Anyone logged into meetup.com can find their token here: https://secure.meetup.com/meetup_api/key/
 
 To run, simly edit `src/test.jl` and run `julia src/test.jl`.
 
