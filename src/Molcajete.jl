@@ -1,4 +1,11 @@
-module Molcajete
+#module Molcajete
+
+    print("Loading Molcajete module\n");
+
+    function initialise_test()
+        print("Initialising module Molcajete\n");
+    end
+    __init__ = initialise_test();
 
     import Requests: get, json
     import DataStructures: counter, OrderedDict
@@ -26,7 +33,7 @@ module Molcajete
         events::OrderedDict{}
     end
 
-    type MeetupUser 
+    type MeetupUser
         id::Int
         name
         link
@@ -173,4 +180,4 @@ module Molcajete
 
         json(response)
     end
-end
+#end
