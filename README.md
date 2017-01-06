@@ -15,3 +15,15 @@ julia
 ```
 
 The 3 required arguments for `show_calendar` are meetup url name, scan start date, and the scan end date. Optionally, you can specify how many of the top N meetups of your members to consider with the `num_meetups` keyword argument.
+
+
+# Debugging
+I like to do my development in a folder separate from the main Julia modules. So I clone to that area then I need to add that location to the PATH_LOAD variable using:
+
+push!(LOAD_PATH, "/Path/To/My/Module/")
+
+/Path/To/My/Module/ should contain the folder Molcajete, which in turn contains src/Molcajete.jl
+
+From this location 'using Molcajete' should load the module.
+ But note: debugging modules sucks. I find it easier to comment out the Module declaration and include the code instead.
+
